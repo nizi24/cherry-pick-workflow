@@ -51,10 +51,10 @@ jobs:
 
             git cherry-pick $MERGE_COMMIT_SHA || {
               echo "::error::Conflict detected in $branch. Please resolve manually."
-              git cherry-pick --abort
 
               new_branch_name="cherry-pick/$branch/$PR_NUMBER"
               git checkout -b $new_branch_name
+              git add .
               git commit -m "Cherry-pick from #$PR_NUMBER failed. Please resolve manually." --allow-empty
               git push origin $new_branch_name
 
