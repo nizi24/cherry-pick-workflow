@@ -56,6 +56,9 @@ jobs:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           for branch in $TARGET_BRANCHES; do
+            if [ -z "$branch" ]; then
+              continue
+            fi
             echo "Cherry-picking to $branch $MERGE_COMMIT_SHA"
             git fetch --depth=1 origin $branch
             git checkout $branch
