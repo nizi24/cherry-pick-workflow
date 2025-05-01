@@ -34,6 +34,7 @@ jobs:
             prs=$(gh pr list -S="$query" -L=100 --json title,author,mergeCommit,url,closedAt,baseRefName,isDraft,state,body,comments,number --jq "sort_by(.closedAt)")
             cherry_pick_prs=$(jq -s 'add' <(echo "$cherry_pick_prs") <(echo "$prs"))
           done
+          cherry_pick_prs=$(echo "$cherry_pick_prs" | jq -c)
           echo "cherry_pick_prs=$cherry_pick_prs" >> $GITHUB_OUTPUT
 
       # PRの本文もしくはコメントに!skip #xxxx, #yyyyが含まれている場合はそのPRのチェリーピックをスキップする
