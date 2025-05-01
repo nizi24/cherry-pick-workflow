@@ -38,9 +38,11 @@ jobs:
       - name: cherry-pick
         if: steps.parse_branches.outputs.target_branches != ''
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_BRANCHES: ${{ steps.parse_branches.outputs.target_branches }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           for branch in $TARGET_BRANCHES; do
             echo "Cherry-picking to $branch"
@@ -53,9 +55,9 @@ jobs:
 
               new_branch_name="cherry-pick/$branch/$PR_NUMBER"
               git checkout -b $new_branch_name
-              git commit -m 'Cherry-pick from #$PR_NUMBER failed. Please resolve manually.' --allow-empty
+              git commit -m "Cherry-pick from #$PR_NUMBER failed. Please resolve manually." --allow-empty
               git push origin $new_branch_name
-              gh pr create --base $branch --head $new_branch_name --title "Cherry-pick from #$PR_NUMBER failed. Please resolve manually." --body "Cherry-pick from #$PR_NUMBER failed. Please resolve manually."
+              gh pr create --base $branch --head $new_branch_name --title "Cherry-pick from #$PR_NUMBER" --assignee $PR_AUTHOR
 
               continue
             }
