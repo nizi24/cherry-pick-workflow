@@ -31,30 +31,41 @@ jobs:
           if echo "$checked_checkboxes" | grep -q 'チェリピ不要'; then
             echo "target_branches=''" >> $GITHUB_OUTPUT
           else
-            target_branches=$(echo "$checked_checkboxes" | sed -nE 's/^([^\n]*?)に適用.*/\1/p')
+            target_branches=$(echo "$checked_checkboxes" | sed -nE 's/^([^\n]*?)に適用.*/\1/p' | tr '\n' ' ')
             echo "target_branches=$target_branches" >> $GITHUB_OUTPUT
           fi
 
       - name: cherry-pick
         if: steps.parse_branches.outputs.target_branches != ''
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_BRANCHES: ${{ steps.parse_branches.outputs.target_branches }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           for branch in $TARGET_BRANCHES; do
             echo "Cherry-picking to $branch"
             git fetch origin $branch
             git checkout $branch
 
-            git cherry-pick ${{ github.event.before }}..${{ github.sha }} || {
+            git cherry-pick $MERGE_COMMIT_SHA || {
               echo "::error::Conflict detected in $branch. Please resolve manually."
               git cherry-pick --abort
 
               new_branch_name="cherry-pick/$branch/$PR_NUMBER"
               git checkout -b $new_branch_name
-              git commit -m 'Cherry-pick from #$PR_NUMBER failed. Please resolve manually.' --allow-empty
+              git commit -m "Cherry-pick from #$PR_NUMBER failed. Please resolve manually." --allow-empty
               git push origin $new_branch_name
-              gh pr create --base $branch --head $new_branch_name --title "Cherry-pick from #$PR_NUMBER failed. Please resolve manually." --body "Cherry-pick from #$PR_NUMBER failed. Please resolve manually."
+
+              pr_title="$branch/cherry-pick from #$PR_NUMBER"
+              pr_body="
+              このPRは自動作成されました。
+              関連するPR #$PR_NUMBER
+
+              @$PR_AUTHOR コンフリクトを解消してください。
+              "
+              gh pr create --base "$branch" --head "$new_branch_name" --title "$pr_title" --body "$pr_body" --assignee "$PR_AUTHOR"
 
               continue
             }
