@@ -45,11 +45,12 @@ jobs:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           for branch in $TARGET_BRANCHES; do
-            echo "Cherry-picking to $branch"
+            echo "Cherry-picking to $branch $MERGE_COMMIT_SHA"
             git fetch origin $branch
             git checkout $branch
 
-            echo "git cherry-pick $MERGE_COMMIT_SHA"
+            git checkout .
+            git clean -fd
 
             git cherry-pick $MERGE_COMMIT_SHA || {
               echo "::error::Conflict detected in $branch. Please resolve manually."
@@ -57,6 +58,7 @@ jobs:
               new_branch_name="cherry-pick/$branch/$PR_NUMBER"
               git checkout -b $new_branch_name
               git add .
+              git checkout -- .github
               git commit -m "Cherry-pick from #$PR_NUMBER failed. Please resolve manually." --allow-empty
               git push origin $new_branch_name
 
