@@ -35,6 +35,15 @@ jobs:
             echo "target_branches=$target_branches" >> $GITHUB_OUTPUT
           fi
 
+      - uses: mxschmitt/action-tmate@960bb4532c376c3df441b7f58b7ba99be4081c8f
+        env:
+          TARGET_BRANCHES: ${{ steps.parse_branches.outputs.target_branches }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        with:
+          limit-access-to-actor: true
+
       - name: cherry-pick
         if: steps.parse_branches.outputs.target_branches != ''
         env:
@@ -57,8 +66,8 @@ jobs:
 
               new_branch_name="cherry-pick/$branch/$PR_NUMBER"
               git checkout -b $new_branch_name
-              git add .
               git checkout -- .github
+              git add .
               git commit -m "Cherry-pick from #$PR_NUMBER failed. Please resolve manually." --allow-empty
               git push origin $new_branch_name
 
