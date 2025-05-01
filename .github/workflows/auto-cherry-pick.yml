@@ -49,6 +49,8 @@ jobs:
             git fetch origin $branch
             git checkout $branch
 
+            echo "git cherry-pick $MERGE_COMMIT_SHA"
+
             git cherry-pick $MERGE_COMMIT_SHA || {
               echo "::error::Conflict detected in $branch. Please resolve manually."
 
