@@ -1,0 +1,61 @@
+name: cherry-picker
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  cherry-pick:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set Git config
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Parse PR description for target branches
+        id: parse_branches
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          checked_checkboxes=$(echo "$PR_BODY" | grep '^- \[x\] ' | sed 's/^- \[x\] //g')
+          if echo "$checked_checkboxes" | grep -q 'チェリピ不要'; then
+            echo "target_branches=''" >> $GITHUB_OUTPUT
+          else
+            target_branches=$(echo "$checked_checkboxes" | sed -nE 's/^([^\n]*?)に適用.*/\1/p')
+            echo "target_branches=$target_branches" >> $GITHUB_OUTPUT
+          fi
+
+      - name: cherry-pick
+        if: steps.parse_branches.outputs.target_branches != ''
+        env:
+          TARGET_BRANCHES: ${{ steps.parse_branches.outputs.target_branches }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          for branch in $TARGET_BRANCHES; do
+            echo "Cherry-picking to $branch"
+            git fetch origin $branch
+            git checkout $branch
+
+            git cherry-pick ${{ github.event.before }}..${{ github.sha }} || {
+              echo "::error::Conflict detected in $branch. Please resolve manually."
+              git cherry-pick --abort
+
+              new_branch_name="cherry-pick/$branch/$PR_NUMBER"
+              git checkout -b $new_branch_name
+              git commit -m 'Cherry-pick from #$PR_NUMBER failed. Please resolve manually.' --allow-empty
+              git push origin $new_branch_name
+              gh pr create --base $branch --head $new_branch_name --title "Cherry-pick from #$PR_NUMBER failed. Please resolve manually." --body "Cherry-pick from #$PR_NUMBER failed. Please resolve manually."
+
+              continue
+            }
+
+            git pull --rebase origin $branch
+            git push origin $branch
+          done
