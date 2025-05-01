@@ -59,13 +59,12 @@ jobs:
               git push origin $new_branch_name
 
               pr_title="$branch/cherry-pick from #$PR_NUMBER"
-              pr_body=$(cat <<EOF
-                このPRは自動作成されました。
-                関連するPR #$PR_NUMBER
+              pr_body="
+              このPRは自動作成されました。
+              関連するPR #$PR_NUMBER
 
-                @$PR_AUTHOR コンフリクトを解消してください。
-                EOF
-              )
+              @$PR_AUTHOR コンフリクトを解消してください。
+              "
               gh pr create --base "$branch" --head "$new_branch_name" --title "$pr_title" --body "$pr_body" --assignee "$PR_AUTHOR"
 
               continue
