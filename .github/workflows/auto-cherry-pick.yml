@@ -57,7 +57,7 @@ jobs:
               git checkout -b $new_branch_name
               git commit -m "Cherry-pick from #$PR_NUMBER failed. Please resolve manually." --allow-empty
               git push origin $new_branch_name
-              gh pr create --base $branch --head $new_branch_name --title "Cherry-pick from #$PR_NUMBER" --assignee $PR_AUTHOR
+              gh pr create --base $branch --head $new_branch_name --title "Cherry-pick from #$PR_NUMBER" --body "このPRは自動作成されました。\n関連するPR #$PR_NUMBER\n\n@$PR_AUTHOR コンフリクトを解消してください。" --assignee $PR_AUTHOR
 
               continue
             }
