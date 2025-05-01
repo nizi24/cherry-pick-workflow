@@ -82,11 +82,13 @@ jobs:
             const prs = JSON.parse(process.env.cherry_pick_prs);
             const skipPrNumbers = JSON.parse(process.env.skip_pr_numbers);
             const branchName = process.env.branch_name;
+            const failedPrs = [];
 
-            const  prs.forEach(async (pr) => {
+            // 直列に実行したいのでfor文で回す
+            for (const pr of prs) {
               if (skipPrNumbers.includes(pr.number)) {
                 console.log(`Skipping PR ${pr.number}`);
-                return;
+                continue;
               }
               console.log(`Cherry-picking PR ${pr.number}`);
 
@@ -104,15 +106,16 @@ jobs:
                   console.log(`Merged PR ${pr.number}`);
                 } else {
                   console.log(`Failed to merge PR ${pr.number}`);
-                  return;
+                  failedPrs.push(pr);
                 }
+                continue;
               }
 
               // 既にチェリーピックされているか確認
               const { exitCode } = await exec(`git cherry-pick ${commitHash}`);
               if (exitCode === 0) {
                 console.log(`PR ${pr.number} is already cherry-picked. skip cherry-picking.`);
-                return;
+                continue;
               }
 
               // チェリーピックする
@@ -121,10 +124,13 @@ jobs:
                 console.log(`Cherry-picking PR ${pr.number} failed.`);
                 console.log(stdout);
                 console.error(stderr);
-                return;
+                failedPrs.push(pr);
+                continue;
               }
               console.log(`Cherry-picked PR ${pr.number}`);
-            });
+            }
+
+            return failedPrs;
 
       - name: Notify failed PRs
         uses: actions/github-script@v7
