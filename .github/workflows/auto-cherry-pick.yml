@@ -100,14 +100,18 @@ jobs:
 
               ---
 
-              - チェリピをやり直す場合のコマンド
+              チェリピをやり直す場合のコマンド
               \`\`\`
+              git pull
               git checkout $new_branch_name
               git reset --hard HEAD^
               git cherry-pick $MERGE_COMMIT_SHA
 
               # コンフリクト解消してから
               git cherry-pick --continue
+
+              # 作業が終わったら
+              git push -f origin $new_branch_name
               \`\`\`
               " | sed 's/^[[:space:]]*//'
               )
