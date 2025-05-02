@@ -83,7 +83,8 @@ jobs:
               @$PR_AUTHOR コンフリクトを解消してください。
               " | sed 's/^[[:space:]]*//'
               )
-              pr_number=$(gh pr create --base "$branch" --head "$new_branch_name" --title "$pr_title" --body "$pr_body" --assignee "$PR_AUTHOR" --json number --jq '.number')
+              pr_url=$(gh pr create --base "$branch" --head "$new_branch_name" --title "$pr_title" --body "$pr_body" --assignee "$PR_AUTHOR")
+              pr_number=$(echo "$pr_url" | sed -nE 's/.*\/pull\/([0-9]+)/\1/p')
 
               gh pr comment "$PR_NUMBER" --body "\`$branch\` へのcherry-pickに失敗しました。コンフリクトを解消してください。 #$pr_number"
 
