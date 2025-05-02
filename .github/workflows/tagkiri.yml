@@ -30,8 +30,11 @@ jobs:
           echo "patch=$patch" >> $GITHUB_OUTPUT
 
       - name: switch to stable branch
+        env:
+          MAJOR: ${{ steps.extract-version.outputs.major }}
+          MINOR: ${{ steps.extract-version.outputs.minor }}
         run: |
-          branch_name="stable/$major.$minor"
+          branch_name="stable/$MAJOR.$MINOR"
           git fetch origin $branch_name
           git checkout $branch_name
 
