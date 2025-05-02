@@ -53,16 +53,37 @@ jobs:
           HEAD=$(git rev-parse HEAD)
           echo "head=$HEAD" >> $GITHUB_OUTPUT
 
+      - name: Create new milestone
+        id: create-new-milestone
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ inputs.version }}
+          OWNER: ${{ github.repository_owner }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          # TODO: マイルストーンの存在確認
+          gh milestone create "$NEW_VERSION" --owner "$OWNER" --repo "$REPOSITORY"
+          milestone_number=$(gh milestone list --owner "$OWNER" --repo "$REPOSITORY" --json number --jq '.[0].number')
+          echo "milestone_number=$milestone_number" >> $GITHUB_OUTPUT
+
       - name: Get all commits between base and head, and find associated PRs
         if: steps.prev-version.outputs.prev_version != ''
         uses: actions/github-script@v7
         env:
           PREV_VERSION: ${{ steps.prev-version.outputs.prev_version }}
           HEAD: ${{ steps.prev-version.outputs.head }}
+          MAJOR_VERSION: ${{ steps.extract-version.outputs.major }}
+          MINOR_VERSION: ${{ steps.extract-version.outputs.minor }}
+          NEW_VERSION: ${{ inputs.version }}
+          NEW_MILESTONE_NUMBER: ${{ steps.create-new-milestone.outputs.milestone_number }}
         with:
           script: |
             const base = process.env.PREV_VERSION;
             const head = process.env.HEAD;
+            const majorVersion = process.env.MAJOR_VERSION;
+            const minorVersion = process.env.MINOR_VERSION;
+            const newVersion = process.env.NEW_VERSION;
+            const newMilestoneNumber = process.env.NEW_MILESTONE_NUMBER;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
@@ -107,23 +128,54 @@ jobs:
 
             console.log(`取得したコミット数: ${filteredCommits.length}`);
 
-            // 各コミットに紐づくPRを取得
-            for (const commit of filteredCommits) {
-              const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+            const prs = filteredCommits.map(async (commit) => {
+              const prNumber = commit.commit.message.split('\n')[0].match(/\(#(\d+)\)$/)?.[1];
+              if (!prNumber) return null;
+
+              const pr = await github.rest.pulls.get({
                 owner,
                 repo,
-                commit_sha: commit.sha,
+                pull_number: prNumber,
               });
-              if (prs.data.length > 0) {
-                console.log(`コミット: ${commit.sha} (${commit.commit.message.split('\n')[0]})`);
-                for (const pr of prs.data) {
-                  console.log(`  PR: #${pr.number} ${pr.title}`);
-                }
-              } else {
-                console.log(`コミット: ${commit.sha} (${commit.commit.message.split('\n')[0]})`);
-                console.log(`  PR: なし`);
+              const milestoneTitle = pr.data.milestone?.title;
+
+              // PRに設定されたマイルストーンとバージョンが一致する場合、PRのマイルストーンを新しいマイルストーンに変更する
+              if (milestoneTitle === `${majorVersion}.${minorVersion}.x`) {
+                return github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  milestone_number: newMilestoneNumber,
+                });
               }
-            }
+
+              // PRにコメントを追加する
+              return github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: `${newVersion}にも適用`,
+              });
+            });
+            await Promise.all(prs);
+
+
+            // for (const commit of filteredCommits) {
+            //   const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+            //     owner,
+            //     repo,
+            //     commit_sha: commit.sha,
+            //   });
+            //   if (prs.data.length > 0) {
+            //     console.log(`コミット: ${commit.sha} (${commit.commit.message.split('\n')[0]})`);
+            //     for (const pr of prs.data) {
+            //       console.log(`  PR: #${pr.number} ${pr.title}`);
+            //     }
+            //   } else {
+            //     console.log(`コミット: ${commit.sha} (${commit.commit.message.split('\n')[0]})`);
+            //     console.log(`  PR: なし`);
+            //   }
+            // }
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.version }}
