@@ -55,16 +55,42 @@ jobs:
 
       - name: Create new milestone
         id: create-new-milestone
+        uses: actions/github-script@v7
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEW_VERSION: ${{ inputs.version }}
-          OWNER: ${{ github.repository_owner }}
-          REPOSITORY: ${{ github.repository }}
-        run: |
-          # TODO: マイルストーンの存在確認
-          gh milestone create "$NEW_VERSION" --owner "$OWNER" --repo "$REPOSITORY"
-          milestone_number=$(gh milestone list --owner "$OWNER" --repo "$REPOSITORY" --json number --jq '.[0].number')
-          echo "milestone_number=$milestone_number" >> $GITHUB_OUTPUT
+        with:
+          result-encoding: string
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const newVersion = process.env.NEW_VERSION;
+
+            // マイルストーンが存在するか確認
+            let page = 1;
+            while (true) {
+              const existingMilestones = await github.rest.issues.listMilestones({
+                owner,
+                repo,
+                page,
+              });
+              if (existingMilestones.data.length === 0) {
+                break;
+              }
+              for (const milestone of existingMilestones.data) {
+                if (milestone.title === newVersion) {
+                  return milestone.number;
+                }
+              }
+              page++;
+            }
+
+            // マイルストーンが存在しない場合、新しいマイルストーンを作成
+            const newMilestoneNumber = await github.rest.issues.createMilestone({
+              owner,
+              repo,
+              title: newVersion,
+            });
+            return newMilestoneNumber.data.number;
 
       - name: Get all commits between base and head, and find associated PRs
         if: steps.prev-version.outputs.prev_version != ''
@@ -75,7 +101,7 @@ jobs:
           MAJOR_VERSION: ${{ steps.extract-version.outputs.major }}
           MINOR_VERSION: ${{ steps.extract-version.outputs.minor }}
           NEW_VERSION: ${{ inputs.version }}
-          NEW_MILESTONE_NUMBER: ${{ steps.create-new-milestone.outputs.milestone_number }}
+          NEW_MILESTONE_NUMBER: ${{ steps.create-new-milestone.outputs.result }}
         with:
           script: |
             const base = process.env.PREV_VERSION;
