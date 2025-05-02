@@ -86,7 +86,7 @@ jobs:
               gh pr create --base "$branch" --head "$new_branch_name" --title "$pr_title" --body "$pr_body" --assignee "$PR_AUTHOR"
               new_pr_number=$(gh pr list --state open --search "$pr_title" --json number --jq '.[0].number')
 
-              gh pr comment "$PR_NUMBER" --body "`$branch` へのcherry-pickに失敗しました。コンフリクトを解消してください。 #$new_pr_number"
+              gh pr comment "$PR_NUMBER" --body "\`$branch\` へのcherry-pickに失敗しました。コンフリクトを解消してください。 #$new_pr_number"
 
               continue
             }
@@ -95,5 +95,5 @@ jobs:
             git push origin $branch
 
             cherry_pick_commit=$(git rev-parse HEAD)
-            gh pr comment "$PR_NUMBER" --body "`$branch` にcherry-pickしました。 $cherry_pick_commit"
+            gh pr comment "$PR_NUMBER" --body "\`$branch\` にcherry-pickしました。 $cherry_pick_commit"
           done
