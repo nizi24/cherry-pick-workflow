@@ -84,6 +84,7 @@ jobs:
               " | sed 's/^[[:space:]]*//'
               )
               gh pr create --base "$branch" --head "$new_branch_name" --title "$pr_title" --body "$pr_body" --assignee "$PR_AUTHOR"
+              sleep 1
               new_pr_number=$(gh pr list --state open --search "$pr_title" --json number --jq '.[0].number')
 
               gh pr comment "$PR_NUMBER" --body "\`$branch\` へのcherry-pickに失敗しました。コンフリクトを解消してください。 #$new_pr_number"
