@@ -6,10 +6,23 @@ on:
       - closed
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        type: number
+        required: true
+        description: 'チェリピしたいPRの番号'
+      branch:
+        type: choice
+        required: true
+        description: 'どのブランチにチェリピするか'
+        options:
+          - stable/1.0.0
+          - stable/1.1.0
 
 jobs:
   cherry-pick:
-    if: github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true || github.event.inputs.branch != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,11 +37,17 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
 
-      - name: Parse PR description for target branches
-        id: parse_branches
+      - name: Set target branches
+        id: set_target_branches
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
+          TARGET_BRANCH: ${{ inputs.branch }}
         run: |
+          if [ -n "$TARGET_BRANCH" ]; then
+            echo "target_branches=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           checked_checkboxes=$(echo "$PR_BODY" | grep '^- \[x\] ' | sed 's/^- \[x\] //g')
           if echo "$checked_checkboxes" | grep -q 'チェリピ不要'; then
             echo "target_branches=''" >> $GITHUB_OUTPUT
@@ -37,24 +56,17 @@ jobs:
             echo "target_branches=$target_branches" >> $GITHUB_OUTPUT
           fi
 
-      # - uses: mxschmitt/action-tmate@960bb4532c376c3df441b7f58b7ba99be4081c8f
-      #   env:
-      #     TARGET_BRANCHES: ${{ steps.parse_branches.outputs.target_branches }}
-      #     PR_NUMBER: ${{ github.event.pull_request.number }}
-      #     MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-      #     PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-      #   with:
-      #     limit-access-to-actor: true
-
       - name: cherry-pick
-        if: steps.parse_branches.outputs.target_branches != ''
+        if: steps.set_target_branches.outputs.target_branches != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TARGET_BRANCHES: ${{ steps.parse_branches.outputs.target_branches }}
+          TARGET_BRANCHES: ${{ steps.set_target_branches.outputs.target_branches }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
+          pull_request_data=$(gh pr view "$PR_NUMBER" --json mergeCommit,author)
+          MERGE_COMMIT_SHA=$(echo "$pull_request_data" | jq -r '.mergeCommit.oid')
+          PR_AUTHOR=$(echo "$pull_request_data" | jq -r '.author.login')
+
           for branch in $TARGET_BRANCHES; do
             if [ -z "$branch" ]; then
               continue
@@ -70,11 +82,11 @@ jobs:
               echo "::error::Conflict detected in $branch. Please resolve manually."
 
               new_branch_name="cherry-pick/$branch/$PR_NUMBER"
-              git checkout -b $new_branch_name
+              git checkout -b "$new_branch_name"
               git add .
               git reset .github
               git commit -m "Cherry-pick from #$PR_NUMBER failed. Please resolve manually." --allow-empty
-              git push origin $new_branch_name
+              git push origin "$new_branch_name"
 
               pr_title="$branch/cherry-pick from #$PR_NUMBER"
               pr_body=$(echo "このPRは自動作成されました。
@@ -91,8 +103,8 @@ jobs:
               continue
             }
 
-            git pull --rebase origin $branch
-            git push origin $branch
+            git pull --rebase origin "$branch"
+            git push origin "$branch"
 
             cherry_pick_commit=$(git rev-parse HEAD)
             gh pr comment "$PR_NUMBER" --body "\`$branch\` にcherry-pickしました。 $cherry_pick_commit"
