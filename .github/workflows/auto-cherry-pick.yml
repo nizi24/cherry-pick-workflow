@@ -99,14 +99,14 @@ jobs:
               @$PR_AUTHOR コンフリクトを解消してください。
 
               - チェリピをやり直す場合のコマンド
-              ```
+              \`\`\`
               git checkout $new_branch_name
               git reset --hard HEAD^
               git cherry-pick $MERGE_COMMIT_SHA
 
               # コンフリクト解消してから
               git cherry-pick --continue
-              ```
+              \`\`\`
               " | sed 's/^[[:space:]]*//'
               )
               pr_url=$(gh pr create --base "$branch" --head "$new_branch_name" --title "$pr_title" --body "$pr_body" --assignee "$PR_AUTHOR")
