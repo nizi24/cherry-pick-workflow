@@ -1,4 +1,5 @@
 name: cherry-picker
+run-name: ${{ github.event.pull_request.merge_commit_title || inputs.pr_number }} ${{ inputs.branch && 'to ' }} ${{ inputs.branch }}
 
 on:
   pull_request:
