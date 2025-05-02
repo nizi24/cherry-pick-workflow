@@ -61,7 +61,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_BRANCHES: ${{ steps.set_target_branches.outputs.target_branches }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
         run: |
           pull_request_data=$(gh pr view "$PR_NUMBER" --json mergeCommit,author)
           MERGE_COMMIT_SHA=$(echo "$pull_request_data" | jq -r '.mergeCommit.oid')
