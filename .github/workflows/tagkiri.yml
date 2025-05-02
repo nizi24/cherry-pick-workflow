@@ -1,0 +1,109 @@
+name: tagkiri
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        required: true
+        description: 'タグ名（x.y.zの形式）'
+
+jobs:
+  tagkiri:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch tags
+        run: |
+          git fetch --tags
+
+      - name: Get prev version
+        id: prev-version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          ESCAPED_VERSION=$(echo "$VERSION" | sed 's/\./\\./g')
+          PREV_VERSION=$(git tag --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | grep -A1 "^$ESCAPED_VERSION$" | tail -n 1)
+          echo "prev_version=$PREV_VERSION" >> $GITHUB_OUTPUT
+
+          HEAD=$(git rev-parse HEAD)
+          echo "head=$HEAD" >> $GITHUB_OUTPUT
+
+      - name: Get all commits between base and head, and find associated PRs
+        uses: actions/github-script@v7
+        env:
+          PREV_VERSION: ${{ steps.prev-version.outputs.prev_version }}
+          HEAD: ${{ steps.prev-version.outputs.head }}
+        with:
+          script: |
+            const base = process.env.PREV_VERSION;
+            const head = process.env.HEAD;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const compare = await github.rest.repos.compareCommitsWithBasehead({
+              owner,
+              repo,
+              basehead: `${base}...${head}`,
+            });
+
+            let page = 1;
+            let allCommits = [];
+            let per_page = 100;
+            let hasNext = true;
+
+            while (hasNext) {
+              const commitsResp = await github.rest.repos.listCommits({
+                owner,
+                repo,
+                sha: head,
+                since: compare.data.base_commit.commit.author.date,
+                per_page,
+                page,
+              });
+              if (commitsResp.data.length === 0) {
+                hasNext = false;
+              } else {
+                allCommits = allCommits.concat(commitsResp.data);
+                page++;
+                if (commitsResp.data.length < per_page) {
+                  hasNext = false;
+                }
+              }
+            }
+
+            // base以降のコミットだけに絞る
+            let filteredCommits = [];
+            for (const commit of allCommits) {
+              if (commit.sha === compare.data.base_commit.sha) break;
+              filteredCommits.push(commit);
+            }
+            filteredCommits = filteredCommits.reverse();
+
+            console.log(`取得したコミット数: ${filteredCommits.length}`);
+
+            // 各コミットに紐づくPRを取得
+            for (const commit of filteredCommits) {
+              const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner,
+                repo,
+                commit_sha: commit.sha,
+              });
+              if (prs.data.length > 0) {
+                console.log(`コミット: ${commit.sha} (${commit.commit.message.split('\n')[0]})`);
+                for (const pr of prs.data) {
+                  console.log(`  PR: #${pr.number} ${pr.title}`);
+                }
+              } else {
+                console.log(`コミット: ${commit.sha} (${commit.commit.message.split('\n')[0]})`);
+                console.log(`  PR: なし`);
+              }
+            }
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.version }}
+  cancel-in-progress: true
