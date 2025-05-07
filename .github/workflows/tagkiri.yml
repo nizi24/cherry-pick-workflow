@@ -168,7 +168,7 @@ jobs:
               });
               const milestoneTitle = pr.data.milestone?.title;
 
-              if (milestoneTitle === newVersion) {
+              if (milestoneTitle === NEW_VERSION) {
                 return undefined;
               }
 
