@@ -54,6 +54,17 @@ jobs:
           HEAD=$(git rev-parse HEAD)
           echo "head=$HEAD" >> $GITHUB_OUTPUT
 
+      # タグ切用ブランチを作成
+      - name: Create tag branch
+        id: create-tag-branch
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          branch_name="stable/${VERSION}"
+          git fetch --depth=1 origin $branch_name || true
+          git checkout -b $branch_name || git checkout $branch_name
+          echo "branch_name=$branch_name" >> $GITHUB_OUTPUT
+
       # マイルストーンが存在するか確認し、存在しない場合は新しいマイルストーンを作成
       - name: Create new milestone
         id: create-new-milestone
