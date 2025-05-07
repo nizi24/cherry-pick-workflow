@@ -157,7 +157,7 @@ jobs:
               // コミットメッセージからPR番号を抽出
               const prNumber = commit.commit.message.split('\n')[0].match(/\(#(\d+)\)$/)?.[1];
               if (!prNumber) {
-                console.log(`PR番号が見つかりません: ${commit.sha}`);
+                console.log(`PR番号が見つかりません: ${commit.sha}: ${commit.commit.message.split('\n')[0]}`);
                 return undefined;
               }
 
@@ -167,6 +167,10 @@ jobs:
                 pull_number: prNumber,
               });
               const milestoneTitle = pr.data.milestone?.title;
+
+              if (milestoneTitle === newVersion) {
+                return undefined;
+              }
 
               // PRに設定されたマイルストーンとバージョンが一致する場合、PRのマイルストーンを新しいマイルストーンに変更する
               if (milestoneTitle === `${MAJOR_VERSION}.${MINOR_VERSION}.x`) {
