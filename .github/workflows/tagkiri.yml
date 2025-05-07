@@ -42,6 +42,7 @@ jobs:
         run: |
           git fetch --tags
 
+      # 前のバージョンとの差分を取得
       - name: Get prev version
         id: prev-version
         env:
@@ -53,6 +54,7 @@ jobs:
           HEAD=$(git rev-parse HEAD)
           echo "head=$HEAD" >> $GITHUB_OUTPUT
 
+      # マイルストーンが存在するか確認し、存在しない場合は新しいマイルストーンを作成
       - name: Create new milestone
         id: create-new-milestone
         uses: actions/github-script@v7
@@ -63,7 +65,7 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const newVersion = process.env.NEW_VERSION;
+            const { NEW_VERSION } = process.env;
 
             // マイルストーンが存在するか確認
             let page = 1;
@@ -77,21 +79,25 @@ jobs:
                 break;
               }
               for (const milestone of existingMilestones.data) {
-                if (milestone.title === newVersion) {
+                if (milestone.title === NEW_VERSION) {
+                  console.log(`マイルストーン「${NEW_VERSION}」は既に存在します`);
                   return milestone.number;
                 }
               }
               page++;
             }
+            console.log(`マイルストーン「${NEW_VERSION}」は存在しません`);
 
             // マイルストーンが存在しない場合、新しいマイルストーンを作成
+            console.log(`マイルストーン「${NEW_VERSION}」を作成します`);
             const newMilestoneNumber = await github.rest.issues.createMilestone({
               owner,
               repo,
-              title: newVersion,
+              title: NEW_VERSION,
             });
             return newMilestoneNumber.data.number;
 
+      # 差分を取得し、差分に含まれるPRのマイルストーン、コメントを更新
       - name: Get all commits between base and head, and find associated PRs
         if: steps.prev-version.outputs.prev_version != ''
         uses: actions/github-script@v7
