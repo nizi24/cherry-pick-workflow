@@ -104,19 +104,14 @@ jobs:
           NEW_MILESTONE_NUMBER: ${{ steps.create-new-milestone.outputs.result }}
         with:
           script: |
-            const base = process.env.PREV_VERSION;
-            const head = process.env.HEAD;
-            const majorVersion = process.env.MAJOR_VERSION;
-            const minorVersion = process.env.MINOR_VERSION;
-            const newVersion = process.env.NEW_VERSION;
-            const newMilestoneNumber = process.env.NEW_MILESTONE_NUMBER;
+            const { PREV_VERSION, HEAD, MAJOR_VERSION, MINOR_VERSION, NEW_VERSION, NEW_MILESTONE_NUMBER } = process.env;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
             const compare = await github.rest.repos.compareCommitsWithBasehead({
               owner,
               repo,
-              basehead: `${base}...${head}`,
+              basehead: `${PREV_VERSION}...${HEAD}`,
             });
 
             let page = 1;
@@ -166,12 +161,12 @@ jobs:
               const milestoneTitle = pr.data.milestone?.title;
 
               // PRに設定されたマイルストーンとバージョンが一致する場合、PRのマイルストーンを新しいマイルストーンに変更する
-              if (milestoneTitle === `${majorVersion}.${minorVersion}.x`) {
+              if (milestoneTitle === `${MAJOR_VERSION}.${MINOR_VERSION}.x`) {
                 return github.rest.issues.update({
                   owner,
                   repo,
                   issue_number: prNumber,
-                  milestone_number: newMilestoneNumber,
+                  milestone_number: NEW_MILESTONE_NUMBER,
                 });
               }
 
@@ -180,28 +175,10 @@ jobs:
                 owner,
                 repo,
                 issue_number: prNumber,
-                body: `${newVersion}にも適用`,
+                body: `${NEW_VERSION}にも適用`,
               });
             });
             await Promise.all(prs);
-
-
-            // for (const commit of filteredCommits) {
-            //   const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-            //     owner,
-            //     repo,
-            //     commit_sha: commit.sha,
-            //   });
-            //   if (prs.data.length > 0) {
-            //     console.log(`コミット: ${commit.sha} (${commit.commit.message.split('\n')[0]})`);
-            //     for (const pr of prs.data) {
-            //       console.log(`  PR: #${pr.number} ${pr.title}`);
-            //     }
-            //   } else {
-            //     console.log(`コミット: ${commit.sha} (${commit.commit.message.split('\n')[0]})`);
-            //     console.log(`  PR: なし`);
-            //   }
-            // }
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.version }}
