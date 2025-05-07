@@ -122,7 +122,7 @@ jobs:
               const commitsResp = await github.rest.repos.listCommits({
                 owner,
                 repo,
-                sha: head,
+                sha: HEAD,
                 since: compare.data.base_commit.commit.author.date,
                 perPage,
                 page,
@@ -147,11 +147,20 @@ jobs:
             }
             filteredCommits = filteredCommits.reverse();
 
-            console.log(`取得したコミット数: ${filteredCommits.length}`);
+            console.log('対象のコミット:');
+            console.log('----------------');
+            filteredCommits.forEach((commit) => {
+              console.log(`- ${commit.sha}: ${commit.commit.message}`);
+            });
+            console.log('----------------');
 
             const prs = filteredCommits.map(async (commit) => {
+              // コミットメッセージからPR番号を抽出
               const prNumber = commit.commit.message.split('\n')[0].match(/\(#(\d+)\)$/)?.[1];
-              if (!prNumber) return null;
+              if (!prNumber) {
+                console.log(`PR番号が見つかりません: ${commit.sha}`);
+                return undefined;
+              }
 
               const pr = await github.rest.pulls.get({
                 owner,
@@ -162,6 +171,7 @@ jobs:
 
               // PRに設定されたマイルストーンとバージョンが一致する場合、PRのマイルストーンを新しいマイルストーンに変更する
               if (milestoneTitle === `${MAJOR_VERSION}.${MINOR_VERSION}.x`) {
+                console.log(`PR #${prNumber}のマイルストーンを${NEW_VERSION}に変更します`);
                 return github.rest.issues.update({
                   owner,
                   repo,
@@ -171,6 +181,7 @@ jobs:
               }
 
               // PRにコメントを追加する
+              console.log(`PR #${prNumber}にコメントを追加します： ${NEW_VERSION}にも適用`);
               return github.rest.issues.createComment({
                 owner,
                 repo,
