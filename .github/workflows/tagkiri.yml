@@ -116,33 +116,33 @@ jobs:
 
             let page = 1;
             let allCommits = [];
-            let per_page = 100;
-            let hasNext = true;
+            const perPage = 100;
 
-            while (hasNext) {
+            while (true) {
               const commitsResp = await github.rest.repos.listCommits({
                 owner,
                 repo,
                 sha: head,
                 since: compare.data.base_commit.commit.author.date,
-                per_page,
+                perPage,
                 page,
               });
               if (commitsResp.data.length === 0) {
-                hasNext = false;
-              } else {
-                allCommits = allCommits.concat(commitsResp.data);
-                page++;
-                if (commitsResp.data.length < per_page) {
-                  hasNext = false;
-                }
+                break;
+              }
+              allCommits = allCommits.concat(commitsResp.data);
+              page++;
+              if (commitsResp.data.length < perPage) {
+                break;
               }
             }
 
             // base以降のコミットだけに絞る
             let filteredCommits = [];
             for (const commit of allCommits) {
-              if (commit.sha === compare.data.base_commit.sha) break;
+              if (commit.sha === compare.data.base_commit.sha) {
+                break;
+              }
               filteredCommits.push(commit);
             }
             filteredCommits = filteredCommits.reverse();
