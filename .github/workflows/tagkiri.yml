@@ -150,7 +150,7 @@ jobs:
             console.log('対象のコミット:');
             console.log('----------------');
             filteredCommits.forEach((commit) => {
-              console.log(`- ${commit.sha}: ${commit.commit.message}`);
+              console.log(`- ${commit.sha}: ${commit.commit.title}`);
             });
             console.log('----------------');
 
